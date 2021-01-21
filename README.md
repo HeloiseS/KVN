@@ -3,8 +3,6 @@
 
 # KVN - my pPXF helper 
 
----
-
 pPXF Helper for use with BPASS.
 This code is not open because pPXF is under copyright and also I can't be bothered to make it pretty
 
