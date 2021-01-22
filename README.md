@@ -88,10 +88,10 @@ kvn.load('myKVN')
 | Attributes | Description |
 | ---------- | ------------|
 | `.ppxf` |  The ppxf object used to make results |
-| `matching_indices`| The indices of the matching templates and template parameters |
-| `matching_raw_spectra` | The raw BPASS spectra that match the observations | 
-| `matching_spectra` | The spectra combined to match observations convolved with the LOSVD from ppxf.matrix|
-| `matching_apolynomial` | The additive polynomial found by ppxf to help match observations. Can be None |
-| `matching_mpolynomial` | The multiplicative polynomial found by ppxf to help match observations. Can be None |
-| `results`| Data Frame containing the results: Age, Metallicity, Weights |
+| `.matching_indices`| The indices of the matching templates and template parameters |
+| `.matching_raw_spectra` | The raw BPASS spectra that match the observations | 
+| `.matching_spectra` | The spectra combined to match observations convolved with the LOSVD from ppxf.matrix|
+| `.matching_apolynomial` | The additive polynomial found by ppxf to help match observations. Can be None |
+| `.matching_mpolynomial` | The multiplicative polynomial found by ppxf to help match observations. Can be None |
+| `.results`| Data Frame containing the results: Age, Metallicity, Weights |
 
