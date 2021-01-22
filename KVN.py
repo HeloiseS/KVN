@@ -33,14 +33,52 @@ class KVN(HokiObject):
     We're not sure what he contributes but he's there for you
     """
 
-    # TODO: Allow selection of ages??
+    # TODO: Allow selection of minimum ages??
     # isntanciated  (__ini__) by the hoki object
 
     def make_templates(self, path_bpass_spectra,
                        wl_obs=None, log_wl_obs=None,  fwhm_obs=None, dispersion_obs=None, wl_range_obs=None,
                        velscale_ratio=1, wl_range_padding=[-1,1],
-                       binary=True, single = False, z_list=None, oversample=1, _max_age_index=42
+                       binary=True, single=False, z_list=None, oversample=1, _max_age_index=42
                       ):
+        """
+        Makes the templates
+
+        Parameters
+        ----------
+        path_bpass_spectra : str
+            Location of the folder where the bpass spectra are located
+        wl_obs : 1D array, optional
+            (Linear) Wavelength array of the observational data. If given, don't need log_wl_obs
+        log_wl_obs : 1D array, optional
+            (Natural Logarithm) Wavelength array of the observational data. If given, don't need wl_obs
+        fwhm_obs : float, optional
+            FWHM of the observations. Applies if the dispersion is not wavelength dependent.
+        dispersion_obs : 1D array, optional
+            Dispersion array. Same size ase wl_obs of log_wl_obs. Applies when the dispersion is wavelength dependent.
+        wl_range_obs : [min, max], optional
+            Wavelength range of the observations, optional # TODO: does this need to be in or can it just be calculated?
+        velscale_ratio : float, optional
+            Velocity scale ratio. Default is 1.
+        wl_range_padding : [-X,Y], optional
+            Padding given to the templates on creation. The template wl range will be [wl_range_obs-X, wl_range_obs+Y].
+            Default is [-1,1]
+        binary : bool, optional
+            Whether to include the binary model spectra. Default is True
+        single : bool, optional
+            Whether to include the single star model spectra. Default is False.
+        z_list : list of str, optional
+             Which metallicities to consider, e.g. ['z020', 'z014'].
+             Default is None. In which case all 13 BPASS metallicites are included.
+        oversample : int, optional
+            The oversample keyword in ppxf
+        _max_age_index : int from 1 to 51, optional
+            Maximum age index to include. Default is 42 which corresponds to a Hubble time.
+
+        Returns
+        -------
+        None. But it creates the following: # TODO: finish this section
+        """
 
         print(f"{dialogue.info()} TemplateMaker Starting")
         print(f"{dialogue.running()} Initial Checks")
@@ -157,7 +195,6 @@ class KVN(HokiObject):
         self.templates = np.empty((_ssp_temp.size, self._max_age_index, len(self.bpass_list_spectra)))
         # # WL bins, # Ages, # mets
 
-        # TODO: find a better name
         self.template_properties =  np.zeros((len(self.bpass_list_spectra)*self._max_age_index, 2))
 
         print(f"{dialogue.running()} Compiling your templates")
@@ -200,6 +237,28 @@ class KVN(HokiObject):
         print(f"{dialogue.complete()} Templates compiled successfully")
 
     def make_results(self, ppxf):
+        """
+        Makes the results
+
+        Parameters
+        ----------
+        ppxf: ppxf.ppxf object
+            ppxf object AFTER the fit has been performed
+
+
+        Returns
+        -------
+        None. But it creates the following
+
+        self.ppxf
+        self.matching_indices
+        self.matching_raw_spectra
+        self.matching_spectra
+        self.matching_apolynomial
+        self.matching_mpolynomial
+        self.results
+
+        """
         self.ppxf=ppxf
         # indices of weights that are non-zero
         self.match_indices = np.argwhere(ppxf.weights != 0.0).T[0]
@@ -208,7 +267,7 @@ class KVN(HokiObject):
         weights = ppxf.weights[self.match_indices]
         self.matching_raw_spectra = []
 
-        #iterating over every solution
+        # iterating over every solution
         for i in range(self.template_properties[self.match_indices].shape[0]):
             # finding matching age
             i_age = np.argwhere(np.round(self.t,2)==self.template_properties[self.match_indices][i,1])[0]
