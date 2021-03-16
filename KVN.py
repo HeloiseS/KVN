@@ -1,17 +1,21 @@
+# classic python
+import glob
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from os import path
+import pickle
+from scipy import ndimage
+
+# Other astro packages
+from astropy.io import fits
+from ppxf import ppxf_util
+from ppxf.ppxf import ppxf, losvd_rfft, rebin
+import ppxf as ppxf_package
+
+# My packages
 from hoki import load
 from hoki.constants import BPASS_METALLICITIES, BPASS_NUM_METALLICITIES
-import glob
-from ppxf import ppxf_util
-from os import path
-import ppxf as ppxf_package
-from astropy.io import fits
-import numpy as np
-from ppxf.ppxf import ppxf, losvd_rfft, rebin
-from scipy import ndimage
-import pandas as pd
-import pickle
-import matplotlib.pyplot as plt
-
 from hoki.utils.hoki_object import HokiObject
 from hoki.utils.hoki_dialogue import dialogue
 from hoki.utils.exceptions import HokiFatalError
@@ -38,7 +42,7 @@ class KVN(HokiObject):
 
     def make_templates(self, path_bpass_spectra,
                        wl_obs=None, log_wl_obs=None,  fwhm_obs=None, dispersion_obs=None, wl_range_obs=None,
-                       velscale_ratio=1, wl_range_padding=[-1,1],
+                        wl_range_padding=[-1,1], velscale_obs=None,
                        binary=True, single=False, z_list=None, oversample=1, _max_age_index=42
                       ):
         """
@@ -58,8 +62,6 @@ class KVN(HokiObject):
             Dispersion array. Same size ase wl_obs of log_wl_obs. Applies when the dispersion is wavelength dependent.
         wl_range_obs : [min, max], optional
             Wavelength range of the observations, optional # TODO: does this need to be in or can it just be calculated?
-        velscale_ratio : float, optional
-            Velocity scale ratio. Default is 1.
         wl_range_padding : [-X,Y], optional
             Padding given to the templates on creation. The template wl range will be [wl_range_obs-X, wl_range_obs+Y].
             Default is [-1,1]
@@ -134,6 +136,7 @@ class KVN(HokiObject):
             self.wl_range_tem = np.array(self.wl_obs[[0,-1]].astype(int))
 
         ### just to be sure we have enough wavelength coverage
+        self.wl_range_tem+=[1,1] # shifted by one angstrom otherwise?
         self.wl_range_tem+=wl_range_padding
 
         print(f"{dialogue.running()} Loading  model spectrum")
@@ -141,13 +144,14 @@ class KVN(HokiObject):
         _ssp=load.model_output(self.bpass_list_spectra[0])
         _ssp.index=_ssp.WL # turning  the WL column into an index so crop the dataframe easily with WL
         _ssp.drop('WL', axis=1, inplace=True)
-
+        self._ssp = _ssp ## JUST TEST THINGS
+        
         self.wl_tem = np.arange(self.wl_range_tem[0], self.wl_range_tem[-1]+1) # is this the same as ssp.WL?
 
-        _ssp60=_ssp.loc[self.wl_range_tem[0]:self.wl_range_tem[-1]]['6.0'].values
+        self._ssp60=_ssp.loc[self.wl_range_tem[0]:self.wl_range_tem[-1]]['6.0'].values
         #one spectrum at log(age)=6.0: needed to get log_wl_template, velscale_template
 
-        self.velscale_ratio=velscale_ratio
+        #self.velscale_ratio=velscale_ratio
 
         self.fwhm_tem = 1 # known for BPASS, res is 1 Angstrom
 
@@ -177,13 +181,21 @@ class KVN(HokiObject):
             raise HokiFatalError(f"dispersion_obs and fwhm_obs are both None \n\n{dialogue.debugger()}\
                     \nAt least one of the following parameters must be provided when you instanciate:\
                     \ndispersion_obs; fwhm_obs")
+        
+        if velscale_obs is not None:
+            self.velscale_obs = velscale_obs
+            
 
         print(f"{dialogue.running()} Calculating template wavelength (log rebin) and velocity scale")
 
         _ssp_temp, self.log_wl_tem, self.velscale_tem = ppxf_util.log_rebin(list(self.wl_range_tem),
-                                                                            _ssp60, oversample=oversample,
-                                                                            velscale=self.velscale_obs/self.velscale_ratio
+                                                                            self._ssp60, oversample=oversample,                                                                                             # introduced a severe bug where the 
+                                                                            # templates wouldn't have the right
+                                                                            # size fore the observations
+                                                                            #
+                                                                            velscale=self.velscale_obs#/self.velscale_ratio
                                                                             )
+        print(_ssp_temp.size)
 
         self._max_age_index=_max_age_index
         print(f"{dialogue.running()} Calculating sigma")
@@ -224,15 +236,26 @@ class KVN(HokiObject):
                 else:
                     ssp_jk = ppxf_util.gaussian_filter1d(ssp_jk, self.sigma) # not the scipy convolution because it can't do variable sigma
 
+                
                 # logarithm binning
-                sspNew, __, __ = ppxf_util.log_rebin(self.wl_range_tem, ssp_jk,
-                                                velscale=self.velscale_obs/self.velscale_ratio)
+                sspNew, log_wl_tem, __ = ppxf_util.log_rebin(self.wl_range_tem,
+                                                     ssp_jk,
+                                                     velscale=self.velscale_obs
+                                                     # introduced a severe bug where the templates wouldn't have the right
+                                                     # size fore the observations
+                                                     #velscale=self.velscale_obs/self.velscale_ratio 
+                                                     )
+
+                
+                #sspNew = ssp_jk
                 # add to the template array
                 self.templates[:, j, k] = sspNew/np.median(sspNew)
                 self.template_properties[i, :] = [met, float(col)]
                 i+=1
 
                 print_progress_bar(i, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
+            
+            self.wl_tem = np.exp(log_wl_tem)
 
         print(f"{dialogue.complete()} Templates compiled successfully")
 
